@@ -1,18 +1,37 @@
 function handleNavbar() {
   const navbar = document.querySelector(".navbar");
-  if (window.scrollY > 80) navbar.classList.add("scrolled");
-  else navbar.classList.remove("scrolled");
+  navbar.classList.toggle("scrolled", window.scrollY > 80);
 }
 
 function toggleMenu() {
   const hamburger = document.querySelector(".hamburger");
   const mobileMenu = document.getElementById("mobileMenu");
+  const isOpening = !mobileMenu.classList.contains("active");
+
   hamburger.classList.toggle("active");
   mobileMenu.classList.toggle("active");
-  if (mobileMenu.classList.contains("active")) {
-    document.body.style.overflow = "hidden";
+
+  if (isOpening) {
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    document.documentElement.style.overflow = "hidden";
+    document.documentElement.style.paddingInlineEnd = scrollbarWidth + "px";
+    // Focus first link in mobile menu for keyboard users
+    const firstLink = mobileMenu.querySelector("nav a");
+    if (firstLink) firstLink.focus();
   } else {
-    document.body.style.overflow = "";
+    document.documentElement.style.overflow = "";
+    document.documentElement.style.paddingInlineEnd = "";
+  }
+}
+
+function closeMenu() {
+  const hamburger = document.querySelector(".hamburger");
+  const mobileMenu = document.getElementById("mobileMenu");
+  if (mobileMenu.classList.contains("active")) {
+    hamburger.classList.remove("active");
+    mobileMenu.classList.remove("active");
+    document.documentElement.style.overflow = "";
+    document.documentElement.style.paddingInlineEnd = "";
   }
 }
 
@@ -89,11 +108,12 @@ function animateCounter(counter) {
 document.addEventListener("DOMContentLoaded", () => {
   updateCopyrightYear();
 
-  document.querySelectorAll("section:not(.hero):not(.hero-small), .stats-bar").forEach((el) => {
+  // Exclude privacy-content from scroll reveal so it's visible immediately
+  document.querySelectorAll("section:not(.hero):not(.hero-small):not(.privacy-content), .stats-bar").forEach((el) => {
     if (!el.classList.contains("reveal")) el.classList.add("reveal");
   });
 
-  // Scroll reveal
+  // ── Scroll reveal ──
   const revealObserver = new IntersectionObserver(
     (entries, observer) => {
       entries.forEach((entry) => {
@@ -110,7 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
     revealObserver.observe(el);
   });
 
-  // Stats counter trigger
+  // ── Stats counter trigger ──
   const counterObserver = new IntersectionObserver(
     (entries, observer) => {
       entries.forEach((entry) => {
@@ -127,7 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
     counterObserver.observe(counter);
   });
 
-  // QR & contact animation
+  // ── QR & contact animation ──
   const qrObserver = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
@@ -145,38 +165,98 @@ document.addEventListener("DOMContentLoaded", () => {
     qrObserver.observe(el);
   });
 
-  // Privacy page reveal
-  if (document.querySelector(".privacy-section")) {
-    const privacyObserver = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.style.opacity = "1";
-            entry.target.style.transform = "translateY(0)";
-          }
-        });
-      },
-      { threshold: 0.1 },
-    );
-    document.querySelectorAll(".privacy-section").forEach((el, index) => {
-      el.style.opacity = "0";
-      el.style.transform = "translateY(20px)";
-      el.style.transition = `opacity 0.5s ease ${index * 0.1}s, transform 0.5s ease ${index * 0.1}s`;
-      privacyObserver.observe(el);
-    });
-  }
-
-  // Navbar scroll listener
-  window.addEventListener("scroll", handleNavbar, { passive: true });
+  // ── Navbar scroll listener (throttled via rAF) ──
+  let ticking = false;
+  window.addEventListener("scroll", () => {
+    if (!ticking) {
+      requestAnimationFrame(() => {
+        handleNavbar();
+        ticking = false;
+      });
+      ticking = true;
+    }
+  }, { passive: true });
   handleNavbar();
 
-  // FAQ keyboard support
+  // ── FAQ click & keyboard support ──
   document.querySelectorAll(".faq-question").forEach((q) => {
+    q.addEventListener("click", () => toggleFAQ(q));
     q.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         toggleFAQ(q);
       }
     });
+  });
+
+  // ── Refactor inline onclick to event listeners ──
+  // Menu toggle: hamburger button
+  document.querySelector(".hamburger")?.addEventListener("click", toggleMenu);
+
+  // Mobile menu links: close menu on click
+  document.querySelectorAll("#mobileMenu nav a").forEach((link) => {
+    link.addEventListener("click", closeMenu);
+  });
+
+  // Mobile CTA button
+  document.querySelector("#mobileMenu .cta")?.addEventListener("click", () => {
+    downloadApp();
+    closeMenu();
+  });
+
+  // Desktop CTA
+  document.querySelector(".desktop-cta")?.addEventListener("click", downloadApp);
+
+  // Hero primary CTA
+  document.querySelectorAll(".cta-primary:not(.big)").forEach((btn) => {
+    btn.addEventListener("click", downloadApp);
+  });
+
+  // Hero secondary CTA (scroll to video)
+  document.querySelector(".cta-secondary")?.addEventListener("click", () => {
+    document.getElementById("video-section")?.scrollIntoView({ behavior: "smooth" });
+  });
+
+  // Course buttons
+  document.querySelectorAll(".btn-course").forEach((btn) => {
+    btn.addEventListener("click", downloadApp);
+  });
+
+  // CTA section button (big)
+  document.querySelectorAll(".cta-section .cta-primary.big").forEach((btn) => {
+    // Privacy page uses data-href to navigate back to index
+    if (btn.dataset.href) {
+      btn.addEventListener("click", () => {
+        window.location.href = btn.dataset.href;
+      });
+    } else {
+      btn.addEventListener("click", downloadApp);
+    }
+  });
+
+  // Escape key to close mobile menu
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeMenu();
+  });
+
+  // Keyboard trap in mobile menu (Tab cycling)
+  const menuEl = document.getElementById("mobileMenu");
+  menuEl?.addEventListener("keydown", (e) => {
+    if (e.key !== "Tab") return;
+    const focusable = menuEl.querySelectorAll('a, button, [tabindex]:not([tabindex="-1"])');
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
   });
 });
