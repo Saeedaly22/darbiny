@@ -1,6 +1,19 @@
+let lastScrollY = 0;
 function handleNavbar() {
+  const scrollY = window.scrollY;
+  if (scrollY === lastScrollY) return; // skip if unchanged
+  lastScrollY = scrollY;
   const navbar = document.querySelector(".navbar");
-  navbar.classList.toggle("scrolled", window.scrollY > 80);
+  navbar.classList.toggle("scrolled", scrollY > 80);
+}
+
+// Cache scrollbar width after first measurement to avoid forced reflow
+let cachedScrollbarWidth = null;
+function getScrollbarWidth() {
+  if (cachedScrollbarWidth === null) {
+    cachedScrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+  }
+  return cachedScrollbarWidth;
 }
 
 function toggleMenu() {
@@ -12,7 +25,7 @@ function toggleMenu() {
   mobileMenu.classList.toggle("active");
 
   if (isOpening) {
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    const scrollbarWidth = getScrollbarWidth();
     document.documentElement.style.overflow = "hidden";
     document.documentElement.style.paddingInlineEnd = scrollbarWidth + "px";
     // Focus first link in mobile menu for keyboard users
