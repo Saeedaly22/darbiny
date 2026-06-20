@@ -1,6 +1,12 @@
+let pendingScroll = false;
 function handleNavbar() {
-  const navbar = document.querySelector(".navbar");
-  navbar.classList.toggle("scrolled", window.scrollY > 80);
+  if (pendingScroll) return;
+  pendingScroll = true;
+  requestAnimationFrame(() => {
+    const navbar = document.querySelector(".navbar");
+    navbar.classList.toggle("scrolled", window.scrollY > 80);
+    pendingScroll = false;
+  });
 }
 
 function toggleMenu() {
